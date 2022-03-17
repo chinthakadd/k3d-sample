@@ -1,0 +1,19 @@
+# Schema = https://github.com/k3d-io/k3d/blob/main/pkg/config/v1alpha4/schema.json
+apiVersion: k3d.io/v1alpha4
+kind: Simple
+metadata:
+  name: poc-k3d-cluster
+image: rancher/k3s:v1.21.1-k3s1
+servers: 1
+agents: 2
+ports:
+- port: "9200:80"
+  nodeFilters:
+  - loadbalancer
+- port: "30000-30100:30000-30100"
+  nodeFilters:
+    - server:0
+registries:
+  create: 
+    name: poc-registry.localhost
+    hostPort: "5000"

@@ -1,0 +1,118 @@
+# apiVersion: networking.k8s.io/v1beta1 # for k3s < v1.19
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sample-ing
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: svc-sample-app-clusterip
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-sample-app-clusterip
+  labels:
+    app: sample-app
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: web
+      protocol: TCP
+      name: web
+  selector:
+    app: sample-app
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-sample-app-node-port
+  labels:
+    app: sample-app
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: web
+      nodePort: 30000
+      protocol: TCP
+      name: web
+  selector:
+    app: sample-app
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dep-sample-app
+  labels:
+    app: sample-app
+spec:
+  selector:
+    matchLabels:
+      app: sample-app
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  template:
+    metadata:
+      labels:
+        app: sample-app
+
+    #########################
+    # POD SPEC
+    #########################
+    spec:
+      containers:
+        - name: cnt-app
+          image: "poc-registry.localhost:5000/demo-app:0.0.1"
+          ports:
+            - containerPort: 8080
+              name: web
+              protocol: TCP
+          imagePullPolicy: IfNotPresent
+          readinessProbe:
+            initialDelaySeconds: 10
+            failureThreshold: 20
+            periodSeconds: 3
+            successThreshold: 1
+            httpGet:
+              port: 8080
+              path: /actuator/health
+          livenessProbe:
+            initialDelaySeconds: 10
+            failureThreshold: 20
+            periodSeconds: 3
+            successThreshold: 1
+            httpGet:
+              port: 8080
+              path: /actuator/health
+
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: -XX:MinRAMPercentage=60.0 -XX:MaxRAMPercentage=90.0
+          #########################
+          # RESOURCE LIMITS AND REQUESTS
+          #########################
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1280Mi
+            requests:
+              cpu: 10m
+              memory: 1024Mi
